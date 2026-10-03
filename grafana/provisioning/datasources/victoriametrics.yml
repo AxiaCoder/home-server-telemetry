@@ -1,0 +1,23 @@
+apiVersion: 1
+
+# Grafana refuse de changer l'uid d'une source deja provisionnee : il tente une
+# mise a jour par nom, ne retrouve pas l'uid, et le conteneur boucle au
+# demarrage ("Datasource provisioning error: data source not found"). On la
+# supprime donc avant de la recreer. Inoffensif : une source de donnees ne
+# contient rien, c'est un pointeur.
+deleteDatasources:
+  - name: VictoriaMetrics
+    orgId: 1
+
+datasources:
+  # VictoriaMetrics expose l'API de requete Prometheus : le type reste "prometheus".
+  # L'uid est fixe ici pour que les dashboards du depot puissent s'y referer.
+  - name: VictoriaMetrics
+    uid: victoriametrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 60s

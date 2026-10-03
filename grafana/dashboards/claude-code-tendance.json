@@ -1,0 +1,360 @@
+{
+  "uid": "claude-code-tendance",
+  "title": "Claude Code — est-ce qu'on optimise sur la durée",
+  "tags": [
+    "claude",
+    "quota",
+    "tendance"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "description": "Dépense ramenée à une unité de travail — session, lancement d'agent —, une valeur par semaine, sur douze mois. Répond à « est-ce qu'on optimise sur la durée ? », ce qu'un total hebdomadaire ne dit pas : il suit le volume de travail.",
+  "time": {
+    "from": "now-12M",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1h",
+      "6h",
+      "1d"
+    ],
+    "nowDelay": "1m"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values({__name__=\"claude_code.token.usage\"}, machine)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      },
+      {
+        "name": "agent",
+        "label": "Agent",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values(agent_duration_seconds, agent)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Ce que mesure ce dashboard",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Un total hebdomadaire suit le **volume de travail**, pas l'efficacité : une grosse semaine monte, qu'on ait optimisé ou non. Ici, **chaque dépense est ramenée à une unité de travail** — une session, un lancement d'agent. Une courbe qui descend sur des mois, c'est que les changements de la config ont payé.\n\n**Un point = une semaine**, et il porte la date de **fin** de sa semaine. C'est Grafana qui cale les points sur des multiples d'une semaine — VictoriaMetrics, interrogé directement, part de l'instant demandé. Le dashboard est en UTC pour que ce calage ne suive pas le fuseau du navigateur. ⚠️ **Le dernier point peut couvrir une semaine en cours** : ne pas le lire, une semaine partielle tire la moyenne n'importe où.\n\n⚠️ **La collecte du harnais a commencé le 23/09/2026** : le premier point de la session et du worker ne couvre qu'un jour. Les séries des sous-agents, rattrapées depuis les transcripts, remontent plus loin.\n\n⛔ Une moyenne par unité sur une semaine de trois lancements ne dit rien : lire la tendance sur plusieurs mois, pas l'écart d'un point au suivant."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Worker — coût pondéré par session",
+      "description": "Coût pondéré = output ×5 + cacheCreation ×1,25 + cacheRead ×0,1 + input ×1, la même grille que *Où part le quota*.\n\nDivisé par le nombre de sessions du worker qui ont consommé. ⚠️ **Une session n'est pas un run** : un run du worker ouvre plusieurs sessions non interactives de quelques minutes, parfois en parallèle (15 sessions pour le run du 24/09, 18h14–20h07), et aucune étiquette ne les relie. La courbe suit le coût d'une étape, pas d'un ticket.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "interval": "1w",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=\"worker\"}[1w])) * 5\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheCreation\", machine=\"worker\"}[1w])) * 1.25\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=\"worker\"}[1w])) * 0.1\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"input\", machine=\"worker\"}[1w])) * 1)\n/ count(count by (\"session.id\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=\"worker\"}[1w])))",
+          "legendFormat": "worker"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "firstNotNull",
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Session principale — coût pondéré par session, par machine",
+      "description": "Coût pondéré = output ×5 + cacheCreation ×1,25 + cacheRead ×0,1 + input ×1, la même grille que *Où part le quota*.\n\nDivisé, machine par machine, par le nombre de sessions qui ont consommé. Suit la variable *Machine* ; le worker en est exclu, il a son panneau. ⚠️ Le Mac émet aussi des centaines de sessions `non-interactive` sans aucun token : les compter aurait écrasé la moyenne, donc seules les sessions porteuses de tokens divisent.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "interval": "1w",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\", machine!=\"\", machine!=\"worker\"}[1w])) * 5\n  + sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheCreation\", machine=~\"$machine\", machine!=\"\", machine!=\"worker\"}[1w])) * 1.25\n  + sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\", machine!=\"\", machine!=\"worker\"}[1w])) * 0.1\n  + sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"input\", machine=~\"$machine\", machine!=\"\", machine!=\"worker\"}[1w])) * 1)\n/ count by (machine) (count by (machine, \"session.id\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\", machine!=\"\", machine!=\"worker\"}[1w])))",
+          "legendFormat": "{{machine}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "firstNotNull",
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Cache relu par lancement, par agent",
+      "description": "Le cache relu d'une semaine divisé par ses lancements, par type d'agent. Séries du collecteur des sous-agents : un échantillon = un lancement, d'où `last_over_time`.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "interval": "1w",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[1w]))\n/ count by (agent) (last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[1w]))",
+          "legendFormat": "{{agent}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "firstNotNull",
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Coût pondéré par lancement, par agent",
+      "description": "Coût pondéré = output ×5 + cacheCreation ×1,25 + cacheRead ×0,1 + input ×1, la même grille que *Où part le quota*. Appliquée aux séries `agent_tokens`, divisée par les lancements de la semaine.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "interval": "1w",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (agent) (last_over_time(agent_tokens{type=\"output\", machine=~\"$machine\", agent=~\"$agent\"}[1w])) * 5\n  + sum by (agent) (last_over_time(agent_tokens{type=\"cacheCreation\", machine=~\"$machine\", agent=~\"$agent\"}[1w])) * 1.25\n  + sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[1w])) * 0.1\n  + sum by (agent) (last_over_time(agent_tokens{type=\"input\", machine=~\"$machine\", agent=~\"$agent\"}[1w])) * 1)\n/ count by (agent) (last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[1w]))",
+          "legendFormat": "{{agent}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "firstNotNull",
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Quota hebdomadaire — maximum atteint par semaine",
+      "description": "Le plus haut `quota_percent{fenetre=\"weekly_all\"}` relevé dans la semaine. C'est le plafond qui compte : il dit si la semaine a failli manquer, quel que soit le rythme.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "interval": "1w",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(max_over_time(quota_percent{fenetre=\"weekly_all\"}[1w]))",
+          "legendFormat": "max atteint"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "firstNotNull",
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

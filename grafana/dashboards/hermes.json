@@ -1,0 +1,884 @@
+{
+  "uid": "hermes",
+  "title": "Hermès — consommation et quota",
+  "tags": [
+    "hermes",
+    "quota"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "description": "Séries produites par collecteurs/hermes.py. ⛔ Une série par session, souvent un seul point, valeur = total de la session : tout se lit en max_over_time par série puis somme — increase() ne rendrait rien.",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "nowDelay": "1m"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Sur la plage",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cache relu",
+      "description": "Tokens relus depuis le cache, toutes sessions de la plage. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time(hermes_tokens{type=\"cacheRead\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Produit",
+      "description": "Tokens de sortie. À comparer au cache relu juste à gauche. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time(hermes_tokens{type=\"output\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Relu pour 1 produit",
+      "description": "Tokens de cache relus pour un token produit, sur la plage. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time(hermes_tokens{type=\"cacheRead\"}[$__range])) / sum(max_over_time(hermes_tokens{type=\"output\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Appels",
+      "description": "Appels au modèle, toutes sessions de la plage. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time(hermes_api_calls[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Sessions",
+      "description": "Sessions distinctes vues sur la plage.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "count(count by (session) (max_over_time(hermes_api_calls[$__range])))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Par jour",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Tokens par jour, par type",
+      "description": "Une barre par jour. Chaque série est une session et porte son total cumulé : une session est comptée en entier dans chaque jour où elle a un point, deux fois si elle passe minuit. `reasoning` n'est pas dessiné, déjà compté dans `output` : il reste lisible dans l'infobulle, pas dans la légende.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "reasoning" },
+            "properties": [
+              { "id": "custom.hideFrom", "value": { "viz": true, "legend": false, "tooltip": false } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "legendFormat": "{{type}}",
+          "expr": "sum by (type) (max_over_time(hermes_tokens[1d]))"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Par origine",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Par origine",
+      "description": "Tous types de tokens sauf `reasoning`, déjà compté dans la sortie. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum by (source) (max_over_time(hermes_tokens{type!=\"reasoning\"}[$__range]))",
+          "legendFormat": "{{source}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Par origine, par jour",
+      "description": "Tous types de tokens sauf `reasoning`, déjà compté dans la sortie.\n\nUne barre par jour. Chaque série est une session et porte son total cumulé : une session est comptée en entier dans chaque jour où elle a un point, deux fois si elle passe minuit.",
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 8,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "legendFormat": "{{source}}",
+          "expr": "sum by (source) (max_over_time(hermes_tokens{type!=\"reasoning\"}[1d]))"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Travail ou frais de service",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "piechart",
+      "title": "Par tâche",
+      "description": "`travail` = les échanges eux-mêmes. Frais de service = `title_generation`, `approval`, `compression`. Tous types de tokens sauf `reasoning`, déjà compté dans la sortie. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum by (task) (max_over_time(hermes_tokens{type!=\"reasoning\"}[$__range]))",
+          "legendFormat": "{{task}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Part des frais de service",
+      "description": "`travail` = les échanges eux-mêmes. Frais de service = `title_generation`, `approval`, `compression`. Tous types de tokens sauf `reasoning`, déjà compté dans la sortie. Une session est comptée en entier dès qu'elle a un point dans la plage, y compris ce qu'elle a consommé avant le début de la plage.",
+      "gridPos": {
+        "h": 9,
+        "w": 4,
+        "x": 8,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time(hermes_tokens{type!=\"reasoning\", task!=\"travail\"}[$__range])) / sum(max_over_time(hermes_tokens{type!=\"reasoning\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "barchart",
+      "title": "Par tâche, par jour",
+      "description": "`travail` = les échanges eux-mêmes. Frais de service = `title_generation`, `approval`, `compression`. Tous types de tokens sauf `reasoning`, déjà compté dans la sortie.\n\nUne barre par jour. Chaque série est une session et porte son total cumulé : une session est comptée en entier dans chaque jour où elle a un point, deux fois si elle passe minuit.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "legendFormat": "{{task}}",
+          "expr": "sum by (task) (max_over_time(hermes_tokens{type!=\"reasoning\"}[1d]))"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Quota",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "type": "gauge",
+      "title": "Quota utilisé, par fenêtre",
+      "description": "Part consommée de chaque fenêtre du quota Codex.\n\n⛔ Vide = « mesure absente » : la lecture du quota a échoué ou n'a pas eu lieu. Ce n'est jamais 0 %.",
+      "gridPos": {
+        "h": 7,
+        "w": 14,
+        "x": 0,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "noValue": "mesure absente",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "max by (fenetre) (hermes_quota_percent) and on() (max(hermes_quota_collecte_ok) == 1)",
+          "legendFormat": "{{fenetre}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "bargauge",
+      "title": "repart dans",
+      "description": "Temps restant avant que chaque fenêtre reparte de zéro.\n\n⛔ Vide = « mesure absente » : la lecture du quota a échoué ou n'a pas eu lieu. Ce n'est jamais 0 %.",
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 14,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text-muted"
+          },
+          "decimals": 0,
+          "noValue": "mesure absente"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "valueMode": "text"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "max by (fenetre) (hermes_quota_resets_at) - time() and on() (max(hermes_quota_collecte_ok) == 1)",
+          "legendFormat": "{{fenetre}}"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Santé du collecteur",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Mesure de la consommation",
+      "description": "⛔ « ABSENTE » ne veut pas dire zéro : la lecture n'a pas eu lieu.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 45
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "ABSENTE",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "à jour",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "ABSENTE",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "hermes_conso_collecte_ok"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Mesure du quota",
+      "description": "⛔ « ABSENTE » ne veut pas dire zéro : la lecture n'a pas eu lieu.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 45
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "ABSENTE",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "à jour",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "ABSENTE",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "hermes_quota_collecte_ok"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Jeton Codex expire dans",
+      "description": "Le collecteur ne renouvelle jamais le jeton : c'est Hermès qui le fait.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 45
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "noValue": "inconnu",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3600
+              },
+              {
+                "color": "green",
+                "value": 86400
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "hermes_jeton_expire_dans"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1087 @@
+{
+  "uid": "claude-code-quota",
+  "title": "Claude Code — où part le quota",
+  "tags": [
+    "claude",
+    "quota"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "description": "Fenêtre par défaut = la semaine de quota Claude, qui court du jeudi 00:00 au jeudi 00:00. now-3d/w+3d résout au dernier jeudi : on recule de 3 jours, on cale sur le lundi de cette semaine-là, on avance de 3 jours.",
+  "time": {
+    "from": "now-3d/w+3d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "nowDelay": "1m"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values({__name__=\"claude_code.token.usage\"}, machine)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Fenêtre 5 h",
+      "description": "La couleur vient du mot que l'API rend dans son champ `severity` — normal, warning, serious, critical — et non d'un seuil de pourcentage décidé ici. ⛔ C'est Anthropic qui dit à partir de quand c'est inquiétant.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "normal"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "serious"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{severite}}",
+          "expr": "quota_percent{fenetre=\"session\"}"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "repart dans",
+      "description": "Temps restant avant que la fenêtre reparte de zéro.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text-muted"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "quota_resets_at{fenetre=\"session\"} - time()"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Fenêtre 7 jours",
+      "description": "La couleur vient du mot que l'API rend dans son champ `severity` — normal, warning, serious, critical — et non d'un seuil de pourcentage décidé ici. ⛔ C'est Anthropic qui dit à partir de quand c'est inquiétant.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "normal"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "serious"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{severite}}",
+          "expr": "quota_percent{fenetre=\"weekly_all\"}"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "repart dans",
+      "description": "Temps restant avant que la fenêtre reparte de zéro.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text-muted"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "quota_resets_at{fenetre=\"weekly_all\"} - time()"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Mesure du quota",
+      "description": "⛔ « ABSENTE » ne veut pas dire quota épuisé : ça veut dire que la lecture n'a pas eu lieu. Sans ce panneau, un endpoint injoignable se lirait comme 0 %.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "à jour",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "ABSENTE",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "quota_collecte_ok"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Où part le quota, par surface",
+      "description": "La seule mesure qui voie autre chose que Claude Code. Elle ne vient pas de notre télémétrie mais du relevé d'Anthropic lui-même, repris par le collecteur de quota : c'est donc le chiffre qui fait autorité.\n\n`Claude Code` couvre les quatre machines en ligne de commande. `Chats` couvre **l'application de bureau et claude.ai dans le navigateur** — ce sont la même surface, elles ne se distinguent pas.\n\n🔑 **C'est une part de ce qui a été consommé, pas de la fenêtre** : les quatre valeurs somment à 100. Une surface pèse donc d'autant plus que la semaine est jeune — en fin de semaine, le même usage se dilue dans un dénominateur plus gros.\n\n⚠️ Granularité au pourcentage entier, et aucun compte de tokens : `used_dollars` est nul sur ce compte.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(quota_surface_percent)",
+          "instant": true,
+          "legendFormat": "{{surface}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Quand chaque surface consomme",
+      "description": "La part de la **fenêtre hebdomadaire** prise par chaque surface, relevée toutes les 5 minutes. Une courbe qui monte, c'est cette surface en train de consommer ; un palier, c'est qu'elle ne sert pas.\n\n🔑 **C'est la lecture par période.** Une semaine de worldbuilding se verra comme une montée de `cowork` là où le partage en pourcentage, lui, ne dit que le total.\n\n⚠️ Tout retombe à zéro le jeudi à minuit : la fenêtre repart, pas la consommation. Une chute verticale est donc une remise à zéro, pas une baisse d'usage.\n\n📌 Résolution : 0,01 point. Elle vient du produit de deux entiers — la part de la surface et le remplissage de la fenêtre — donc une surface sous 1 % de la consommation reste invisible.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quota_surface_fenetre_percent",
+          "legendFormat": "{{surface}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": "bargauge",
+      "title": "Silence depuis, par machine",
+      "description": "Depuis combien de temps chaque machine n'a plus rien envoyé : l'heure courante moins l'horodatage de son dernier point. Une valeur qui grimpe veut dire qu'elle s'est arrêtée.\n\n⚠️ Une ligne « (déduit) » est un émetteur parti sans son `machine=…`, nommé d'après son système. L'étiquette vient du bloc `env` de settings.json, donc une session lancée avec un `--settings` à la place la perd — et la métrique part quand même. Deux cas relevés le 23/09, jour de l'installation, aucun depuis.\n\n📌 Une machine qui émet sans son étiquette `machine` est rattachée à la sienne d'après son `os.type` : darwin et windows n'en désignent qu'une chacun ici. ⚠️ Linux en désigne deux — le serveur et le worker — donc un anonyme sous Linux reste à part, sous `linux (déduit)` : l'attribuer serait inventer une donnée.",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 7200
+              },
+              {
+                "color": "red",
+                "value": 43200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showUnfilled": true,
+        "sortBy": "Value",
+        "sortOrder": "Desc"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{machine}}",
+          "expr": "time() - max by (machine) ((max by (machine) (tlast_over_time({__name__=\"claude_code.token.usage\", machine!=\"\"}[7d]))) or (label_replace(label_replace(label_replace(max by (\"os.type\") (tlast_over_time({__name__=\"claude_code.token.usage\", machine=\"\"}[7d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Coût pondéré",
+      "description": "Ce que la consommation coûte réellement, une fois chaque type de token pondéré. **C'est la grandeur qui décide** : le cache relu est 87 % du volume mais un dixième du prix unitaire, donc un tableau qui classe au volume classe mal.\n\n⚠️ Les poids viennent de la grille publique — sortie ×5, cache écrit ×1,25, cache relu ×0,1. C'est donc **un indice de comparaison, pas un prix** : l'abonnement est fixe.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-blue"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\"}[$__range])) * 5\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheCreation\", machine=~\"$machine\"}[$__range])) * 1.25\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range])) * 0.1\n  + sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"input\", machine=~\"$machine\"}[$__range])) * 1",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Cache relu",
+      "description": "Somme sur la période. Chaque session est une série à part : on prend son maximum, qui est son total.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Produit",
+      "description": "Tokens de sortie. À comparer au cache relu juste à gauche.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Relu pour 1 produit",
+      "description": "Le rapport qui justifie toute la pile : un run coûte ce qu'il relit, pas ce qu'il écrit.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range])) / sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Sessions",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(count_over_time({__name__=\"claude_code.session.count\", machine=~\"$machine\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Coût relatif (indice)",
+      "description": "Un indice de comparaison, pas un prix. Il vient de `claude_code.cost.usage`, que Claude Code chiffre en dollars d'API — mais l'abonnement est fixe, donc le montant ne se paie pas. Il sert à comparer deux périodes ou deux machines, et rien d'autre.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Coût pondéré par jour, et par machine",
+      "description": "La dépense réelle, jour par jour. ⚠️ **Le classement n'est pas celui du cache relu** : au relevé du 25/09, le serveur pesait 0,1 % du volume et **6,4 % du coût** — il écrit du cache et ne le relit jamais, donc il paie plein tarif sans apparaître.\n\n⚠️ Les poids viennent de la grille publique — sortie ×5, cache écrit ×1,25, cache relu ×0,1. C'est donc **un indice de comparaison, pas un prix** : l'abonnement est fixe.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (machine) ((sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=~\"$machine\", machine!=\"\"}[1d]))) or (label_replace(label_replace(label_replace(sum by (\"os.type\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"output\", machine=\"\"}[1d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))) * 5\n  + (sum by (machine) ((sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheCreation\", machine=~\"$machine\", machine!=\"\"}[1d]))) or (label_replace(label_replace(label_replace(sum by (\"os.type\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheCreation\", machine=\"\"}[1d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))) * 1.25\n  + (sum by (machine) ((sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\", machine!=\"\"}[1d]))) or (label_replace(label_replace(label_replace(sum by (\"os.type\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=\"\"}[1d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))) * 0.1\n  + (sum by (machine) ((sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"input\", machine=~\"$machine\", machine!=\"\"}[1d]))) or (label_replace(label_replace(label_replace(sum by (\"os.type\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"input\", machine=\"\"}[1d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))) * 1",
+          "interval": "1d",
+          "legendFormat": "{{machine}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Cache relu par jour, et par machine (volume)",
+      "description": "Un **volume**, pas une dépense — à lire après le panneau du coût pondéré, qui le corrige.\n\nUne barre par jour, empilée par machine.\n\n⚠️ La fenêtre par défaut du tableau est la semaine de quota en cours, qui repart le jeudi à minuit. Tant qu'elle fait moins de 24 h, ce panneau n'a qu'une seule barre — ce n'est pas une panne. Élargir la fenêtre pour voir des jours.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (machine) ((sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\", machine!=\"\"}[1d]))) or (label_replace(label_replace(label_replace(sum by (\"os.type\") (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=\"\"}[1d])), \"machine\", \"mac\", \"os.type\", \"darwin\"), \"machine\", \"windows\", \"os.type\", \"windows\"), \"machine\", \"linux (déduit)\", \"os.type\", \"linux\")))",
+          "interval": "1d",
+          "legendFormat": "{{machine}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "Principal ou sous-agent (vu par la métrique native)",
+      "description": "🔴 Ce partage sous-compte massivement les sous-agents. Mesuré le 24/09 sur la même fenêtre de 24 h : la métrique native attribue 167 502 tokens aux sous-agents là où le collecteur qui lit les transcripts en compte 22 517 439 — un facteur 134.\n\n⇒ Lire ce camembert comme « ce que la télémétrie native voit », jamais comme la part réelle des sous-agents. Celle-ci est dans le tableau « ce que coûtent les sous-agents ».",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (query_source) (max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "{{query_source}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "Par agent, sous leur vrai nom",
+      "description": "Séries du collecteur, pas du harnais : celui-ci range tout agent maison sous \"custom\". Mesuré en tokens de cache relu, et non en coût, parce que le collecteur ne calcule pas de prix. ⛔ Se lit en last_over_time — un échantillon vaut un lancement. Le détail par agent est dans le dashboard « ce que coûtent les sous-agents ».",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "always"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sort_desc(sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\"}[$__range])))"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Par modèle",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "piechart",
+      "title": "Les quatre types de tokens",
+      "description": "L'échelle parle d'elle-même : input et output sont invisibles à côté du cache.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (type) (max_over_time({__name__=\"claude_code.token.usage\", machine=~\"$machine\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "{{type}}"
+        }
+      ]
+    }
+  ]
+}

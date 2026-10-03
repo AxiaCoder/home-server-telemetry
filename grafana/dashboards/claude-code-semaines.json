@@ -1,0 +1,462 @@
+{
+  "uid": "claude-code-semaines",
+  "title": "Claude Code — une semaine contre l'autre",
+  "tags": [
+    "claude",
+    "quota",
+    "comparaison"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "description": "Compare la semaine de quota en cours à la précédente, À DURÉE ÉCOULÉE ÉGALE : offset 7d décale la même fenêtre de sept jours, donc on compare le même nombre d'heures depuis jeudi. Comparer une semaine partielle à une semaine complète donnerait toujours une baisse.",
+  "time": {
+    "from": "now-3d/w+3d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "nowDelay": "1m"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values({__name__=\"claude_code.token.usage\"}, machine)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Comment lire ce tableau",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "La fenêtre par défaut est **la semaine de quota en cours** — du jeudi 00:00 à maintenant. La colonne « semaine -1 » applique `offset 7d` à **la même fenêtre** : on compare donc le même nombre d'heures écoulées depuis jeudi, pas une semaine partielle à une semaine complète.\n\n**Un écart négatif est une baisse de consommation.** Un panneau vide signifie qu'il n'y a pas de donnée pour la semaine comparée — c'est le cas tant que la collecte n'a pas un mois."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cache relu — en cours",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Cache relu — semaine -1",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range] offset 7d))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Écart",
+      "description": "Négatif = on consomme moins que la semaine dernière au même moment.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "100 * (sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range])) / sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range] offset 7d)) - 1)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Coût relatif — en cours",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Coût relatif — semaine -1",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range] offset 7d))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Écart de coût",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "100 * (sum(max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range])) / sum(max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range] offset 7d)) - 1)"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Jour par jour, les deux semaines superposées",
+      "description": "La semaine -1 est décalée de 7 jours : chaque barre se lit en face du même jour de la semaine en cours.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "none",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "legendFormat": "en cours",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[1d]))"
+        },
+        {
+          "refId": "B",
+          "interval": "1d",
+          "legendFormat": "semaine -1",
+          "expr": "sum(max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[1d] offset 7d))"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Par machine",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{machine}} — en cours",
+          "expr": "sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range]))"
+        },
+        {
+          "refId": "B",
+          "instant": true,
+          "legendFormat": "{{machine}} — semaine -1",
+          "expr": "sum by (machine) (max_over_time({__name__=\"claude_code.token.usage\", type=\"cacheRead\", machine=~\"$machine\"}[$__range] offset 7d))"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "Principal contre sous-agents",
+      "description": "En coût relatif : un sous-agent crée du cache au lieu d'en relire, sa part serait invisible en cacheRead.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{query_source}} — en cours",
+          "expr": "sum by (query_source) (max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range]))"
+        },
+        {
+          "refId": "B",
+          "instant": true,
+          "legendFormat": "{{query_source}} — semaine -1",
+          "expr": "sum by (query_source) (max_over_time({__name__=\"claude_code.cost.usage\", machine=~\"$machine\"}[$__range] offset 7d))"
+        }
+      ]
+    }
+  ]
+}

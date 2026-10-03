@@ -1,0 +1,620 @@
+{
+  "uid": "claude-code-agents",
+  "title": "Claude Code — ce que coûtent les sous-agents",
+  "tags": [
+    "claude",
+    "quota",
+    "agents"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "description": "Séries produites par collecteur-agents.py, qui lit les transcripts : elles portent le vrai nom de l'agent, que les métriques du harnais remplacent par 'custom'. ⛔ Un échantillon = un lancement, donc tout se lit avec last_over_time — sum_over_time compterait deux fois un lancement renvoyé après une panne de réseau. Fenêtre par défaut : 30 jours, parce qu'on regarde des habitudes, pas une semaine de quota.",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "nowDelay": "1m"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values(agent_duration_seconds, machine)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      },
+      {
+        "name": "agent",
+        "label": "Agent",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": "label_values(agent_duration_seconds, agent)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Ce que ces séries savent, et ce qu'elles ne savent pas",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Ces chiffres viennent des **transcripts**, pas des métriques du harnais : `agent.name` y remplace tout agent maison par `custom`, donc `dev`, `reviewer` et `tester` y sont indistinguables. Le crochet `SubagentStop`, lui, reçoit le vrai nom.\n\n**Un échantillon = un lancement**, horodaté à son début. ⛔ Tout se lit avec `last_over_time` : `sum_over_time` compterait deux fois un lancement renvoyé après une panne de réseau. **Aucun total ici ne fait foi** — les totaux sont ceux du harnais, dans *Où part le quota*.\n\n**Les cinq agents déclarés dans `claude-config`** : `dev`, `pr-reviewer`, `qa`, `reviewer`, `tester`. L'un d'eux qui n'apparaît ni dans la part ni dans « vu pour la dernière fois » n'a pas tourné sur la fenêtre choisie."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Lancements",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "count(last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Cache relu",
+      "description": "La grandeur qui compte : ce qu'un lancement fait relire, pas ce qu'il écrit.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Produit",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(last_over_time(agent_tokens{type=\"output\", machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Heures cumulées",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "sum(last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range])) / 3600"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "piechart",
+      "title": "Part de chaque agent",
+      "description": "Le récapitulatif d'un coup d'œil. ⚠️ Un agent qui n'a pas tourné n'a pas de tranche : c'est le panneau de droite qui repère un agent muet.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent",
+            "value"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Vu pour la dernière fois",
+      "description": "Depuis combien de temps chaque agent n'a plus été lancé. ⛔ Un agent déclaré qui n'apparaît pas ici n'a jamais tourné sur la fenêtre — c'est ce cas que le camembert ne peut pas montrer. 📌 tlast_over_time et non timestamp(last_over_time(...)) : le second rend l'instant d'évaluation, donc la même valeur pour tous les agents.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 172800
+              },
+              {
+                "color": "red",
+                "value": 604800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showUnfilled": true,
+        "sortBy": "Value",
+        "sortOrder": "Desc"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "time() - max by (agent) (tlast_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Cache relu, par agent",
+      "description": "Qui pèse, tous lancements confondus.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "always"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sort_desc(sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[$__range])))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Cache relu par lancement",
+      "description": "Le coût unitaire : un agent lancé rarement peut être le plus cher à chaque fois. C'est ce que le total masque.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "always"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sort_desc(sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[$__range])) / count by (agent) (last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range])))"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Nombre de lancements",
+      "description": "Ce que les métriques du harnais ne peuvent pas compter : leurs séries se confondent d'un lancement à l'autre.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 29
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "always"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sort_desc(count by (agent) (last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range])))"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Heures passées",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 29
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "always"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{agent}}",
+          "expr": "sort_desc(sum by (agent) (last_over_time(agent_duration_seconds{machine=~\"$machine\", agent=~\"$agent\"}[$__range])) / 3600)"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Par modèle",
+      "description": "Deux agents déclarent model: sonnet — dev et tester. Les autres héritent du modèle de la session.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 29
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{model}}",
+          "expr": "sum by (model) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Cache relu par jour, empilé par agent",
+      "description": "Un lancement compte dans le jour où il a DÉMARRÉ, même s'il s'est terminé le lendemain.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "interval": "1d",
+          "legendFormat": "{{agent}}",
+          "expr": "sum by (agent) (last_over_time(agent_tokens{type=\"cacheRead\", machine=~\"$machine\", agent=~\"$agent\"}[1d]))"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Les quatre types de tokens, par agent",
+      "description": "Quatre séries, une par type de token, l'agent en abscisse.\n\nLe panneau groupait auparavant par agent ET par type en n'affichant que le type dans la légende : vingt-six entrées dont aucune ne pouvait être rattachée à son agent.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent, type) (last_over_time(agent_tokens{machine=~\"$machine\", agent=~\"$agent\"}[$__range]))",
+          "instant": true,
+          "format": "table",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "type",
+            "rowField": "agent",
+            "valueField": "Value"
+          }
+        }
+      ]
+    }
+  ]
+}

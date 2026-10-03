@@ -1,0 +1,41 @@
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: victoriametrics
+    restart: unless-stopped
+    ports:
+      # Local seul par defaut : VictoriaMetrics n'a aucune authentification.
+      - "${BIND_ADDR:-127.0.0.1}:8428:8428"
+    volumes:
+      - vm-data:/victoria-metrics-data
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-httpListenAddr=:8428"
+      # Mois, pas jours : on veut comparer un mois a l'autre.
+      - "-retentionPeriod=12"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - victoriametrics
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD manque dans .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Fige le debut de semaine : les dashboards calent leur fenetre sur "/w",
+      # qui sinon suivrait la locale du navigateur et donnerait un resultat
+      # different d'un poste a l'autre.
+      GF_DATE_FORMATS_DEFAULT_WEEK_START: "monday"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+volumes:
+  vm-data:
+  grafana-data:

@@ -1,0 +1,15 @@
+apiVersion: 1
+
+providers:
+  # Les dashboards viennent des fichiers du depot, jamais de la base Grafana.
+  # allowUiUpdates: false => une modification faite dans l'UI ne peut pas etre
+  # enregistree par-dessus le fichier. On edite dans l'UI, on exporte le JSON,
+  # on le commite ici.
+  - name: home-server
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
