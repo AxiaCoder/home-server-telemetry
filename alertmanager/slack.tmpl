@@ -1,0 +1,26 @@
+{{/* Gabarits du message Slack. Le dossier local/ peut redefinir canal.* et geste.tache. */}}
+
+{{/* Canaux par defaut, par nom : chat.postMessage accepte un nom de canal ou son identifiant. */}}
+{{ define "canal.alertes" }}#alertes{{ end }}
+{{ define "canal.urgent" }}#urgent{{ end }}
+
+{{/* Geste d'une tache muette, l'alerte en point. La table par tache est dans local/. */}}
+{{ define "geste.tache" }}lire le log de la tâche {{ .Labels.tache }}, puis la relancer{{ end }}
+
+{{/* Une ligne par alerte : 🔴/🟠 <resume> → <geste> ; ✅ a la resolution. */}}
+{{ define "maison.ligne" -}}
+{{ if eq .Status "resolved" -}}
+✅ résolu : {{ .Annotations.resume }}
+{{- else -}}
+{{ if eq .Labels.canal "urgent" }}🔴{{ else }}🟠{{ end }} {{ .Annotations.resume }} → {{ with .Annotations.geste }}{{ . }}{{ else }}{{ template "geste.tache" . }}{{ end }}
+{{- end }}
+{{- end }}
+
+{{ define "maison.texte" -}}
+{{ range $i, $alerte := .Alerts }}{{ if $i }}
+{{ end }}{{ template "maison.ligne" $alerte }}{{ end }}
+{{- end }}
+
+{{ define "maison.couleur" -}}
+{{ if eq .Status "resolved" }}good{{ else if eq .CommonLabels.canal "urgent" }}danger{{ else }}warning{{ end }}
+{{- end }}

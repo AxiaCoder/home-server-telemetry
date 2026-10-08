@@ -1,0 +1,92 @@
+#!/bin/sh
+# pouls — signale a VictoriaMetrics qu'une tache vient de reussir.
+#
+#   pouls <tache> <delai> <canal> [<delai2> <canal2>]
+#
+# Pousse `tache_dernier_succes{tache}` (epoch s) et, par couple delai/canal,
+# `tache_delai_max_secondes{tache,canal}` (s). Delai : un entier suivi de
+# s, m, h ou d (`90m`, `1h`, `26h`, `2d`). Noms de tache et de canal :
+# lettres, chiffres, `_` et `-`.
+#
+# Adresse : `TELEMETRIE_ENDPOINTS` du bloc env de ~/.claude/settings.json,
+# bases separees par des virgules, essayees dans l'ordre ; sinon la base de
+# `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` (ce qui precede `/opentelemetry`) ;
+# sinon http://localhost:8428. Besoin de curl.
+#
+# Sortie toujours 0 : un cron qui echoue bruyamment finit par etre ignore.
+# Les erreurs vont sur la sortie d'erreur.
+
+REGLAGES="${HOME}/.claude/settings.json"
+DESTINATION_PAR_DEFAUT="http://localhost:8428"
+DELAI_ENVOI=5
+
+erreur() {
+    echo "pouls : $*" >&2
+    exit 0
+}
+
+# Rend en secondes un delai `<entier><s|m|h|d>`, ou rien s'il est mal forme.
+secondes() {
+    case "$1" in
+        *[!0-9smhd]* | [!0-9]* | *[0-9]) return ;;
+    esac
+    nombre=$(echo "${1%?}" | sed 's/^0*//')
+    case "$nombre" in
+        '' | *[!0-9]*) return ;;
+    esac
+    case "$1" in
+        *s) echo $((nombre)) ;;
+        *m) echo $((nombre * 60)) ;;
+        *h) echo $((nombre * 3600)) ;;
+        *d) echo $((nombre * 86400)) ;;
+    esac
+}
+
+# Dit si l'argument est un nom de tache ou de canal acceptable.
+nom_valide() {
+    case "$1" in
+        '' | *[!A-Za-z0-9_-]*) return 1 ;;
+    esac
+    return 0
+}
+
+# Rend les bases de VictoriaMetrics, une par ligne.
+bases() {
+    liste=""
+    if [ -r "$REGLAGES" ]; then
+        liste=$(sed -n 's/.*"TELEMETRIE_ENDPOINTS"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REGLAGES" | head -n 1)
+        if [ -z "$(echo "$liste" | tr -d ', ')" ]; then
+            liste=$(sed -n 's/.*"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REGLAGES" \
+                | head -n 1 | sed 's#/opentelemetry.*##')
+        fi
+    fi
+    [ -n "$liste" ] || liste="$DESTINATION_PAR_DEFAUT"
+    echo "$liste" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s#/*$##' | grep -v '^$'
+}
+
+[ $# -ge 3 ] || erreur "usage : pouls <tache> <delai> <canal> [<delai2> <canal2>]"
+[ $(($# % 2)) -eq 1 ] || erreur "chaque delai attend son canal"
+command -v curl >/dev/null 2>&1 || erreur "curl introuvable, rien n'est envoye"
+
+tache="$1"
+shift
+nom_valide "$tache" || erreur "nom de tache refuse : $tache"
+
+corps="tache_dernier_succes{tache=\"$tache\"} $(date +%s)"
+while [ $# -gt 0 ]; do
+    delai=$(secondes "$1")
+    [ -n "$delai" ] || erreur "delai illisible : $1 (attendu : 90m, 1h, 26h, 2d…)"
+    nom_valide "$2" || erreur "nom de canal refuse : $2"
+    corps="$corps
+tache_delai_max_secondes{tache=\"$tache\",canal=\"$2\"} $delai"
+    shift 2
+done
+
+for base in $(bases); do
+    code=$(printf '%s\n' "$corps" | curl -s -o /dev/null -w '%{http_code}' -m "$DELAI_ENVOI" \
+        --data-binary @- "$base/api/v1/import/prometheus" 2>/dev/null)
+    case "$code" in
+        2??) exit 0 ;;
+    esac
+done
+erreur "base injoignable, pouls de $tache perdu"

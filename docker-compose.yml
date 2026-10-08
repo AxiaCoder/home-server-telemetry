@@ -36,6 +36,38 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
+  vmalert:
+    image: victoriametrics/vmalert:v1.152.0
+    container_name: vmalert
+    restart: unless-stopped
+    depends_on:
+      - victoriametrics
+      - alertmanager
+    volumes:
+      - ./alertes.yml:/etc/alertes.yml:ro
+    command:
+      - "-datasource.url=http://victoriametrics:8428"
+      - "-notifier.url=http://alertmanager:9093"
+      - "-rule=/etc/alertes.yml"
+      - "-evaluationInterval=1m"
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      # Aucune authentification : quiconque atteint ce port pose ou leve des silences.
+      - "${BIND_ADDR:-127.0.0.1}:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager:/etc/alertmanager/maison:ro
+      # Etat des notifications et silences, gardes d'un redemarrage a l'autre.
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+
 volumes:
   vm-data:
   grafana-data:
+  alertmanager-data:

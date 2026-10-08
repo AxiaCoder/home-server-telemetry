@@ -1,2 +1,4 @@
 .env
 __pycache__/
+# Canaux, gestes et jeton Slack de cette installation.
+alertmanager/local/

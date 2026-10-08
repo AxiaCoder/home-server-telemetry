@@ -1,0 +1,86 @@
+# Regles d'alerte evaluees par vmalert, toutes les minutes.
+#
+# Chaque regle porte deux etiquettes que lit Alertmanager :
+# - `famille` : ce qui se groupe dans un meme message ;
+# - `canal` : `alertes` ou `urgent`, la route Slack.
+# Et deux annotations que lit le gabarit du message :
+# - `resume` : le constat, une phrase ;
+# - `geste` : quoi faire. Absente, le geste vient de la table `geste.tache` du gabarit local.
+
+groups:
+  - name: taches
+    rules:
+      # Une alerte par (tache, canal) dont le dernier pouls est plus vieux que le delai
+      # pose par `pouls`. La valeur rendue est l'age du dernier succes, en secondes.
+      # `last_over_time[45d]` : un pouls quotidien sortirait sinon de la fenetre de
+      # fraicheur de 5 min, et la tache disparaitrait au lieu d'alerter.
+      # Seuls comptent les canaux pousses avec le dernier pouls de la tache : un delai
+      # recu plus de 60 s avant lui est un canal retire.
+      - alert: TacheMuette
+        expr: |
+          (
+              0 * max by (tache, canal) (last_over_time(tache_delai_max_secondes[45d]))
+            + on (tache) group_left ()
+              (time() - max by (tache) (last_over_time(tache_dernier_succes[45d])))
+          )
+          > on (tache, canal)
+          (
+              max by (tache, canal) (last_over_time(tache_delai_max_secondes[45d]))
+            and on (tache, canal)
+              (
+                  max by (tache, canal) (tlast_over_time(tache_delai_max_secondes[45d]))
+                >= on (tache) group_left ()
+                  max by (tache) (tlast_over_time(tache_dernier_succes[45d])) - 60
+              )
+          )
+        for: 5m
+        labels:
+          famille: taches
+        annotations:
+          resume: "tâche {{ $labels.tache }} muette depuis {{ $value | humanizeDuration }}"
+
+  - name: collectes
+    rules:
+      - alert: CollecteQuotaClaude
+        expr: max(quota_collecte_ok) == 0
+        for: 30m
+        labels:
+          famille: collectes
+          canal: alertes
+        annotations:
+          resume: "le quota Claude ne se collecte plus"
+          geste: "lire le log de quota.py — jeton expiré ou endpoint changé"
+
+      - alert: CollecteQuotaCodex
+        expr: max(hermes_quota_collecte_ok) == 0
+        for: 30m
+        labels:
+          famille: collectes
+          canal: alertes
+        annotations:
+          resume: "le quota Codex ne se collecte plus"
+          geste: "lire le log de hermes.py — jeton d'Hermès expiré ou usage refusé"
+
+      - alert: CollecteConsoHermes
+        expr: max(hermes_conso_collecte_ok) == 0
+        for: 30m
+        labels:
+          famille: collectes
+          canal: alertes
+        annotations:
+          resume: "la consommation d'Hermès ne se collecte plus"
+          geste: "lire le log de hermes.py — state.db illisible"
+
+  - name: quotas
+    rules:
+      - alert: QuotaCodexHebdo
+        expr: max(hermes_quota_percent{fenetre="weekly"}) >= 80
+        for: 30m
+        labels:
+          famille: quotas
+          canal: alertes
+        annotations:
+          resume: >-
+            quota Codex de la semaine à {{ $value | printf "%.0f" }} %, remise à zéro le
+            {{ with query "max(hermes_quota_resets_at{fenetre=\"weekly\"})" }}{{ (. | first | value | toTime).Format "02/01 à 15:04 UTC" }}{{ else }}?{{ end }}
+          geste: "alléger les tâches d'Hermès jusqu'à la remise à zéro"

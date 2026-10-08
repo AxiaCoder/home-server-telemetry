@@ -112,6 +112,7 @@ class Base(unittest.TestCase):
         self._patches = [
             mock.patch.object(hermes, "BASE_HERMES", self.base),
             mock.patch.object(hermes, "IDENTIFIANTS", self.auth),
+            mock.patch.object(hermes, "TICK_HERMES", self.maison / ".hermes/cron/ticker_last_success"),
             mock.patch.object(hermes, "REGLAGES", self.maison / ".claude/settings.json"),
             mock.patch.dict(os.environ, {"HOME": str(self.maison)}),
         ]
@@ -262,6 +263,36 @@ class Quota(Base):
         with mock.patch.object(hermes, "collecter_quota", side_effect=AttributeError("boom")):
             code, _ = self.lancer("--sec")
         self.assertEqual(code, 0)
+
+
+class Tick(Base):
+    def ecrire_tick(self, contenu: str) -> None:
+        chemin = self.maison / ".hermes/cron/ticker_last_success"
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        chemin.write_text(contenu, encoding="utf-8")
+
+    def test_tick_file_becomes_pouls_lines(self):
+        self.ecrire_tick("1791449044.7731848\n")
+        code, lignes = self.lancer("--sec", urlopen=mock.Mock(return_value=Reponse(PAYLOAD)))
+        self.assertEqual(code, 0)
+        self.assertIn('tache_dernier_succes{tache="hermes"} 1791449045', lignes)
+        self.assertIn('tache_delai_max_secondes{tache="hermes",canal="alertes"} 1800', lignes)
+
+    def test_missing_or_unreadable_tick_emits_nothing_and_keeps_collecting(self):
+        for contenu in (None, "", "pas un nombre", "nan", "inf"):
+            with self.subTest(contenu=contenu):
+                if contenu is not None:
+                    self.ecrire_tick(contenu)
+                code, lignes = self.lancer("--sec", urlopen=mock.Mock(return_value=Reponse(PAYLOAD)))
+                self.assertEqual(code, 0)
+                self.assertFalse([l for l in lignes if l.startswith("tache_")])
+                self.assertIn("hermes_quota_collecte_ok 1", lignes)
+                self.assertIn("hermes_conso_collecte_ok 1", lignes)
+
+    def test_rattrapage_skips_tick(self):
+        self.ecrire_tick("1791449044.7731848")
+        _, lignes = self.lancer("--sec", "--rattrapage")
+        self.assertFalse([l for l in lignes if l.startswith("tache_")])
 
 
 class AucuneEcriture(Base):

@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      VM_VERSION: v1.152.0
+      AM_VERSION: 0.34.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Same versions as the images in docker-compose.yml: a rule that passes here passes there.
+      - name: Install vmalert-tool and amtool
+        run: |
+          curl -fsSL "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/${VM_VERSION}/vmutils-linux-amd64-${VM_VERSION}.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin vmalert-tool-prod
+          curl -fsSL "https://github.com/prometheus/alertmanager/releases/download/v${AM_VERSION}/alertmanager-${AM_VERSION}.linux-amd64.tar.gz" \
+            | sudo tar -xz --strip-components=1 -C /usr/local/bin "alertmanager-${AM_VERSION}.linux-amd64/amtool"
+
+      - name: Unit tests (pouls, rules, collectors)
+        # VMALERT_TOOL set explicitly: the rules test must run here, never be skipped.
+        env:
+          VMALERT_TOOL: /usr/local/bin/vmalert-tool-prod
+        run: python -m unittest discover -s tests -v
+
+      - name: Alertmanager configuration
+        run: |
+          sudo mkdir -p /etc/alertmanager
+          sudo ln -s "$PWD/alertmanager" /etc/alertmanager/maison
+          amtool check-config alertmanager.yml
