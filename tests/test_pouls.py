@@ -157,6 +157,17 @@ class TestPouls(unittest.TestCase):
         self.assertEqual(sortie.returncode, 0)
         self.assertIn("base injoignable, pouls de sauvegarde perdu", sortie.stderr)
 
+    def test_se_replie_sur_la_base_de_l_endpoint_otlp_sans_telemetrie_endpoints(self) -> None:
+        serveur = self.faux()
+        dossier = self.home / ".claude"
+        dossier.mkdir(exist_ok=True)
+        otlp = f"{serveur.base}/opentelemetry/v1/metrics"
+        reglages = {"env": {"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": otlp}}
+        (dossier / "settings.json").write_text(json.dumps(reglages, indent=2))
+        sortie = self.lancer("t", "1h", "alertes")
+        self.assertEqual(sortie.returncode, 0)
+        self.assertEqual([chemin for chemin, _ in serveur.recus], [CHEMIN_IMPORT])
+
     def test_arguments_invalides_ne_poussent_rien_et_sortent_en_zero(self) -> None:
         serveur = self.faux()
         self.regler(serveur.base)

@@ -9,8 +9,9 @@
 # lettres, chiffres, `_` et `-`.
 #
 # Adresse : `TELEMETRIE_ENDPOINTS` du bloc env de ~/.claude/settings.json,
-# bases separees par des virgules, essayees dans l'ordre ; sinon
-# http://localhost:8428. Besoin de curl.
+# bases separees par des virgules, essayees dans l'ordre ; sinon la base de
+# `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` (ce qui precede `/opentelemetry`) ;
+# sinon http://localhost:8428. Besoin de curl.
 #
 # Sortie toujours 0 : un cron qui echoue bruyamment finit par etre ignore.
 # Les erreurs vont sur la sortie d'erreur.
@@ -54,6 +55,10 @@ bases() {
     liste=""
     if [ -r "$REGLAGES" ]; then
         liste=$(sed -n 's/.*"TELEMETRIE_ENDPOINTS"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REGLAGES" | head -n 1)
+        if [ -z "$(echo "$liste" | tr -d ', ')" ]; then
+            liste=$(sed -n 's/.*"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REGLAGES" \
+                | head -n 1 | sed 's#/opentelemetry.*##')
+        fi
     fi
     [ -n "$liste" ] || liste="$DESTINATION_PAR_DEFAUT"
     echo "$liste" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s#/*$##' | grep -v '^$'
