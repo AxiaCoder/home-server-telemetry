@@ -3,22 +3,27 @@
 > 🇫🇷 Où part le quota de Claude Code — et de Hermès —, sur toutes vos machines, en graphes. Deux
 > conteneurs sur un serveur maison : VictoriaMetrics reçoit l'OpenTelemetry natif de Claude Code,
 > Grafana l'affiche. Les dashboards mesurent ce qui compte vraiment sur un abonnement : le **cache
-> relu**, pas seulement les tokens produits.
+> relu**, pas seulement les tokens produits. Et vmalert + Alertmanager préviennent sur Slack
+> quand une collecte ou une tâche planifiée se tait.
 >
 > 🇬🇧 Where your Claude Code — and Hermès — quota goes, across all your machines, as graphs. Two
 > containers on a home server: VictoriaMetrics receives Claude Code's native OpenTelemetry, Grafana
 > displays it. The dashboards measure what actually matters on a subscription: **cache reads**, not
-> just output tokens. *The content is written in French.*
+> just output tokens. vmalert + Alertmanager post to Slack when a collector or a scheduled job
+> goes silent. *The content is written in French.*
 
 | Pièce | Port | Rôle |
 |---|---|---|
 | VictoriaMetrics | 8428 | reçoit l'OTLP, stocke (12 mois), répond à l'API de requête Prometheus |
 | Grafana | 3000 | lit VictoriaMetrics, affiche les dashboards du dépôt |
+| vmalert | 8880 | évalue les règles de `alertes.yml` chaque minute |
+| Alertmanager | 9093 | groupe les alertes et les poste sur Slack |
 
 🔴 **VictoriaMetrics n'a aucune authentification.** Quiconque atteint le port 8428 peut lire vos
 métriques — **dont l'adresse e-mail et les identifiants de votre compte Claude**, que l'OpenTelemetry
 de Claude Code joint à chaque série —, en écrire de fausses, et en effacer. N'exposez jamais 8428 ni
-3000 sur Internet. Les ports n'écoutent par défaut que sur la machine (`127.0.0.1`) ; pour que vos
+3000 sur Internet — ni 9093 : **Alertmanager non plus n'a aucune authentification**, et
+quiconque l'atteint pose des silences qui font taire vos alertes. Les ports n'écoutent par défaut que sur la machine (`127.0.0.1`) ; pour que vos
 postes émettent, `BIND_ADDR` dans `.env` :
 
 | `BIND_ADDR` | Qui atteint les ports | Quand |
@@ -132,6 +137,97 @@ désigne une seule interface.
 
 Pour `hermes.py`, une première passe `python3 collecteurs/hermes.py --rattrapage` pousse toutes
 les sessions de la base, sans le quota.
+
+---
+
+## Les alertes
+
+vmalert évalue `alertes.yml` chaque minute contre VictoriaMetrics et passe ce qui se déclenche à
+Alertmanager, qui groupe et poste sur Slack — une ligne par alerte :
+
+```
+🟠 le quota Claude ne se collecte plus → lire le log de quota.py — jeton expiré ou endpoint changé
+🔴 tâche sauvegarde muette depuis 2d 3h → lire <dossier>/backup.log, relancer backup.sh
+```
+
+🟠 part sur le canal `alertes` (rappel toutes les 24 h), 🔴 sur `urgent` (toutes les 12 h), ✅ quand
+l'alerte se résout. Les alertes d'une même `famille` partent ensemble, après 2 min d'attente.
+
+### Brancher Slack
+
+Une application Slack avec un bot, scope `chat:write`, invité dans les deux canaux. Ce qui est
+propre à votre installation vit dans `alertmanager/local/`, **ignoré par git** :
+
+```bash
+mkdir -p alertmanager/local
+cp alertmanager/local.tmpl.example alertmanager/local/local.tmpl   # canaux et gestes
+printf '%s' 'xoxb-…' > alertmanager/local/slack-token              # le jeton du bot
+sudo chown 65534 alertmanager/local/slack-token && chmod 400 alertmanager/local/slack-token
+docker compose up -d
+```
+
+⚠️ **Alertmanager tourne sous l'utilisateur `nobody` (65534)** : un jeton lisible par vous seul lui
+est illisible, et Slack ne reçoit rien. Le `chown` ci-dessus le lui donne sans l'ouvrir à tous.
+
+Sans `local.tmpl`, les messages partent vers `#alertes` et `#urgent` par leur nom, avec un geste
+générique.
+
+### Surveiller une tâche : `pouls`
+
+Une tâche planifiée qui se tait ne prévient personne. `pouls` signale chaque succès ; la règle
+`TacheMuette` alerte quand le dernier date de plus que le délai donné :
+
+```
+pouls <tâche> <délai> <canal> [<délai2> <canal2>]
+```
+
+Une ligne de cron suffit, après le `&&` : sans succès, pas de pouls.
+
+```
+0 3 * * * <dossier>/backup.sh && <clone>/pouls sauvegarde 26h alertes 48h urgent
+```
+
+Ici : 🟠 si la sauvegarde n'a pas réussi depuis 26 h, 🔴 depuis 48 h. Délai en `s`, `m`, `h` ou
+`d` ; noms de tâche et de canal en lettres, chiffres, `_` et `-`. L'adresse est celle des
+collecteurs (`TELEMETRIE_ENDPOINTS`, sinon `http://localhost:8428`). Il ne demande que `sh` et
+`curl`, et sort toujours en 0.
+
+Le geste affiché pour une tâche muette se règle dans `alertmanager/local/local.tmpl`, une branche
+par nom de tâche (`geste.tache`), puis `docker compose restart alertmanager`.
+
+📌 **Une tâche qui n'a jamais pulsé n'alerte pas** : la règle compare un âge à un délai, il faut
+les deux. Et un pouls qui n'arrive plus depuis 45 jours sort de la fenêtre de la règle — l'alerte se
+résout faute de donnée. ⇒ Pour retirer une tâche, la retirer du cron et laisser passer 45 jours, ou
+effacer ses séries (`/api/v1/admin/tsdb/delete_series`).
+
+`collecteurs/hermes.py` pulse pour Hermès : il lit `~/.hermes/cron/ticker_last_success` et pousse
+`tache="hermes"`, 🟠 au-delà de 30 min.
+
+### Ajouter une alerte seuil
+
+Une règle dans `alertes.yml`, sur le modèle des autres : deux étiquettes, `famille` (le groupe du
+message) et `canal` (`alertes` ou `urgent`), deux annotations, `resume` et `geste`. Puis
+`docker compose restart vmalert`. Vérifier le fichier avant :
+
+```bash
+docker run --rm -v "$PWD":/r:ro victoriametrics/vmalert:v1.152.0 -dryRun -rule=/r/alertes.yml
+docker run --rm -v "$PWD/alertmanager.yml":/etc/alertmanager/alertmanager.yml:ro \
+  -v "$PWD/alertmanager":/etc/alertmanager/maison:ro --entrypoint amtool prom/alertmanager:v0.34.1 \
+  check-config /etc/alertmanager/alertmanager.yml
+```
+
+### Faire taire une alerte
+
+Un silence, le temps d'une intervention : la page d'Alertmanager (`http://<hôte>:9093`, onglet
+*Silences*), ou en ligne de commande sur le serveur —
+
+```bash
+docker exec alertmanager amtool --alertmanager.url=http://localhost:9093 \
+  silence add alertname=TacheMuette tache=sauvegarde --duration=6h --comment="restauration en cours"
+docker exec alertmanager amtool --alertmanager.url=http://localhost:9093 silence query
+```
+
+Les silences survivent à un redémarrage (volume `alertmanager-data`).
 
 ---
 
