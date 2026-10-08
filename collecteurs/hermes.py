@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Pousse dans VictoriaMetrics la consommation d'Hermes et le quota du compte Codex.
 
-Deux sources, lues sur la machine ou tourne Hermes :
+Trois sources, lues sur la machine ou tourne Hermes :
 - `~/.hermes/state.db`, ouverte en lecture seule : les tokens et appels par session ;
-- https://chatgpt.com/backend-api/wham/usage, non documentee : le quota du compte.
+- https://chatgpt.com/backend-api/wham/usage, non documentee : le quota du compte ;
+- `~/.hermes/cron/ticker_last_success` : le dernier tick reussi de son cron, pousse
+  comme un `pouls` (`tache_dernier_succes{tache="hermes"}`).
 
 Une serie par session, valeur = total de la ligne, horodatee a son `last_seen` :
 Hermes supprime des sessions, un total recalcule redescendrait le jour d'une purge.
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import pathlib
 import sqlite3
 import sys
@@ -34,6 +37,7 @@ MAISON = pathlib.Path.home()
 REGLAGES = MAISON / ".claude/settings.json"
 BASE_HERMES = MAISON / ".hermes/state.db"
 IDENTIFIANTS = MAISON / ".hermes/auth.json"
+TICK_HERMES = MAISON / ".hermes/cron/ticker_last_success"
 USAGE = "https://chatgpt.com/backend-api/wham/usage"
 AGENT = "codex_cli_rs/0.50.0"
 DESTINATION_PAR_DEFAUT = "http://localhost:8428"
@@ -41,6 +45,7 @@ FENETRE_RECENTE = 24 * 3600
 DELAI_ENVOI = 5
 DELAI_USAGE = 15
 LOT_ENVOI = 5000
+DELAI_MAX_TICK = 1800
 
 TYPES_TOKENS = {
     "input_tokens": "input",
@@ -201,6 +206,23 @@ def collecter_quota() -> tuple[list[str], str]:
     return corps + [expiration, "hermes_quota_collecte_ok 1"], f"5h a {cinq_heures} %"
 
 
+def lignes_tick() -> list[str]:
+    """Rend le pouls du cron d'Hermes : dernier tick reussi (epoch s) et delai tolere (s).
+
+    Fichier absent, illisible ou valeur non finie : aucune ligne.
+    """
+    try:
+        horodatage = float(TICK_HERMES.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return []
+    if not math.isfinite(horodatage):
+        return []
+    return [
+        f'tache_dernier_succes{{tache="hermes"}} {horodatage:.0f}',
+        f'tache_delai_max_secondes{{tache="hermes",canal="alertes"}} {DELAI_MAX_TICK}',
+    ]
+
+
 def pousser(corps: list[str], urls: list[str]) -> bool:
     """Envoie les lignes par lots ; dit si chaque lot a ete accepte par l'une des adresses."""
     for debut in range(0, len(corps), LOT_ENVOI):
@@ -245,7 +267,7 @@ def collecter() -> int:
 
     if not rattrapage:
         quota, etat_quota = collecter_quota()
-        corps += quota
+        corps += quota + lignes_tick()
         resume += f", quota : {etat_quota}"
 
     if sec:
