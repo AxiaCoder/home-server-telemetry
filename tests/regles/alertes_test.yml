@@ -75,6 +75,29 @@ tests:
             exp_annotations:
               resume: "tâche quotidienne muette depuis 1d 3h 0m 0s"
 
+  - name: TacheMuette ignores a channel the latest beat no longer pushes
+    interval: 1m
+    input_series:
+      - series: 'tache_dernier_succes{tache="retiree"}'
+        values: "946684800 _x29 946686600 _x200"
+      - series: 'tache_delai_max_secondes{tache="retiree",canal="alertes"}'
+        values: "3600 _x29 3600 _x200"
+      - series: 'tache_delai_max_secondes{tache="retiree",canal="urgent"}'
+        values: "7200 _x229"
+    alert_rule_test:
+      - eval_time: 160m
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts:
+          - exp_labels:
+              alertgroup: taches
+              alertname: TacheMuette
+              famille: taches
+              tache: retiree
+              canal: alertes
+            exp_annotations:
+              resume: "tâche retiree muette depuis 2h 10m 0s"
+
   - name: collection alerts fire after 30 minutes of failure
     interval: 1m
     input_series:
