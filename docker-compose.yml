@@ -43,8 +43,6 @@ services:
     depends_on:
       - victoriametrics
       - alertmanager
-    ports:
-      - "${BIND_ADDR:-127.0.0.1}:8880:8880"
     volumes:
       - ./alertes.yml:/etc/alertes.yml:ro
     command:

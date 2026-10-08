@@ -10,7 +10,7 @@
 {{/* Table tache → geste, pour TacheMuette. Une branche par nom passe a `pouls`. */}}
 {{ define "geste.tache" -}}
 {{ if eq .Labels.tache "sauvegarde" }}lire <dossier>/backup.log, relancer backup.sh
-{{- else if eq .Labels.tache "hermes" }}redémarrer la passerelle d'Hermès
+{{- else if eq .Labels.tache "hermes" }}vérifier d'abord que collecte-hermes pulse (sinon c'est le collecteur hermes.py), puis redémarrer la passerelle d'Hermès
 {{- else }}lire le log de la tâche {{ .Labels.tache }}, puis la relancer
 {{- end }}
 {{- end }}

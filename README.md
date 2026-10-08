@@ -4,19 +4,19 @@
 > conteneurs sur un serveur maison : VictoriaMetrics reçoit l'OpenTelemetry natif de Claude Code,
 > Grafana l'affiche. Les dashboards mesurent ce qui compte vraiment sur un abonnement : le **cache
 > relu**, pas seulement les tokens produits. Et vmalert + Alertmanager préviennent sur Slack
-> quand une collecte ou une tâche planifiée se tait.
+> quand une collecte échoue ou qu'une tâche planifiée se tait.
 >
 > 🇬🇧 Where your Claude Code — and Hermès — quota goes, across all your machines, as graphs. Two
 > containers on a home server: VictoriaMetrics receives Claude Code's native OpenTelemetry, Grafana
 > displays it. The dashboards measure what actually matters on a subscription: **cache reads**, not
-> just output tokens. vmalert + Alertmanager post to Slack when a collector or a scheduled job
-> goes silent. *The content is written in French.*
+> just output tokens. vmalert + Alertmanager post to Slack when a collector fails or a scheduled
+> job goes silent. *The content is written in French.*
 
 | Pièce | Port | Rôle |
 |---|---|---|
 | VictoriaMetrics | 8428 | reçoit l'OTLP, stocke (12 mois), répond à l'API de requête Prometheus |
 | Grafana | 3000 | lit VictoriaMetrics, affiche les dashboards du dépôt |
-| vmalert | 8880 | évalue les règles de `alertes.yml` chaque minute |
+| vmalert | — | évalue les règles de `alertes.yml` chaque minute |
 | Alertmanager | 9093 | groupe les alertes et les poste sur Slack |
 
 🔴 **VictoriaMetrics n'a aucune authentification.** Quiconque atteint le port 8428 peut lire vos
@@ -131,9 +131,13 @@ d'erreur, et `hermes.py` pousse sur `http://localhost:8428` — qui ne répond p
 désigne une seule interface.
 
 ```
-*/5 * * * * cd <clone> && python3 collecteurs/quota.py  >> <log>/quota.log 2>&1
-*/5 * * * * cd <clone> && python3 collecteurs/hermes.py >> <log>/hermes.log 2>&1
+*/5 * * * * cd <clone> && python3 collecteurs/quota.py  >> <log>/quota.log 2>&1 && ./pouls collecte-quota 30m alertes
+*/5 * * * * cd <clone> && python3 collecteurs/hermes.py >> <log>/hermes.log 2>&1 && ./pouls collecte-hermes 30m alertes
 ```
+
+Le `pouls` en bout de ligne dit que le cron tourne : un collecteur sort toujours en 0, il pulse donc
+même quand sa collecte échoue — c'est `*_collecte_ok` qui dit qu'elle réussit. Sans lui, un
+collecteur arrêté n'alerte pas. Voir [`pouls`](#surveiller-une-tâche--pouls).
 
 Pour `hermes.py`, une première passe `python3 collecteurs/hermes.py --rattrapage` pousse toutes
 les sessions de la base, sans le quota.
@@ -147,7 +151,7 @@ Alertmanager, qui groupe et poste sur Slack — une ligne par alerte :
 
 ```
 🟠 le quota Claude ne se collecte plus → lire le log de quota.py — jeton expiré ou endpoint changé
-🔴 tâche sauvegarde muette depuis 2d 3h → lire <dossier>/backup.log, relancer backup.sh
+🔴 tâche sauvegarde muette depuis 2d 3h 0m 0s → lire <dossier>/backup.log, relancer backup.sh
 ```
 
 🟠 part sur le canal `alertes` (rappel toutes les 24 h), 🔴 sur `urgent` (toutes les 12 h), ✅ quand
@@ -189,7 +193,8 @@ Une ligne de cron suffit, après le `&&` : sans succès, pas de pouls.
 
 Ici : 🟠 si la sauvegarde n'a pas réussi depuis 26 h, 🔴 depuis 48 h. Délai en `s`, `m`, `h` ou
 `d` ; noms de tâche et de canal en lettres, chiffres, `_` et `-`. L'adresse est celle des
-collecteurs (`TELEMETRIE_ENDPOINTS`, sinon `http://localhost:8428`). Il ne demande que `sh` et
+collecteurs (`TELEMETRIE_ENDPOINTS`, sinon la base de `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, sinon
+`http://localhost:8428`). Il ne demande que `sh` et
 `curl`, et sort toujours en 0.
 
 Le geste affiché pour une tâche muette se règle dans `alertmanager/local/local.tmpl`, une branche
