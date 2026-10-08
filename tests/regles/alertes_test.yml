@@ -1,0 +1,144 @@
+# vmalert-tool evaluates from 2000-01-01T00:00:00Z: a timestamp sample of 946684800 is "at t=0".
+
+rule_files:
+  - ../../alertes.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: TacheMuette fires per (tache, canal) once the beat is older than its delay
+    interval: 1m
+    input_series:
+      - series: 'tache_dernier_succes{tache="sauvegarde"}'
+        values: "946684800x100"
+      - series: 'tache_delai_max_secondes{tache="sauvegarde",canal="alertes"}'
+        values: "3600x100"
+      - series: 'tache_delai_max_secondes{tache="sauvegarde",canal="urgent"}'
+        values: "7200x100"
+    alert_rule_test:
+      - eval_time: 59m
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts: []
+      - eval_time: 64m
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts: []
+      - eval_time: 70m
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts:
+          - exp_labels:
+              alertgroup: taches
+              alertname: TacheMuette
+              famille: taches
+              tache: sauvegarde
+              canal: alertes
+            exp_annotations:
+              resume: "tâche sauvegarde muette depuis 1h 10m 0s"
+
+  - name: TacheMuette stays quiet while the beat keeps up
+    interval: 1m
+    input_series:
+      - series: 'tache_dernier_succes{tache="vivante"}'
+        values: "946684800+60x200"
+      - series: 'tache_delai_max_secondes{tache="vivante",canal="alertes"}'
+        values: "600x200"
+    alert_rule_test:
+      - eval_time: 180m
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts: []
+
+  - name: TacheMuette still fires on a daily beat gone silent past the freshness window
+    interval: 1h
+    input_series:
+      - series: 'tache_dernier_succes{tache="quotidienne"}'
+        values: "946684800 _x30"
+      - series: 'tache_delai_max_secondes{tache="quotidienne",canal="alertes"}'
+        values: "93600 _x30"
+    alert_rule_test:
+      - eval_time: 25h
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts: []
+      - eval_time: 27h
+        groupname: taches
+        alertname: TacheMuette
+        exp_alerts:
+          - exp_labels:
+              alertgroup: taches
+              alertname: TacheMuette
+              famille: taches
+              tache: quotidienne
+              canal: alertes
+            exp_annotations:
+              resume: "tâche quotidienne muette depuis 1d 3h 0m 0s"
+
+  - name: collection alerts fire after 30 minutes of failure
+    interval: 1m
+    input_series:
+      - series: "quota_collecte_ok"
+        values: "0x60"
+      - series: "hermes_quota_collecte_ok"
+        values: "0x60"
+      - series: "hermes_conso_collecte_ok"
+        values: "1x60"
+    alert_rule_test:
+      - eval_time: 20m
+        groupname: collectes
+        alertname: CollecteQuotaClaude
+        exp_alerts: []
+      - eval_time: 40m
+        groupname: collectes
+        alertname: CollecteQuotaClaude
+        exp_alerts:
+          - exp_labels:
+              alertgroup: collectes
+              alertname: CollecteQuotaClaude
+              famille: collectes
+              canal: alertes
+            exp_annotations:
+              resume: "le quota Claude ne se collecte plus"
+              geste: "lire le log de quota.py — jeton expiré ou endpoint changé"
+      - eval_time: 40m
+        groupname: collectes
+        alertname: CollecteQuotaCodex
+        exp_alerts:
+          - exp_labels:
+              alertgroup: collectes
+              alertname: CollecteQuotaCodex
+              famille: collectes
+              canal: alertes
+            exp_annotations:
+              resume: "le quota Codex ne se collecte plus"
+              geste: "lire le log de hermes.py — jeton d'Hermès expiré ou usage refusé"
+      - eval_time: 40m
+        groupname: collectes
+        alertname: CollecteConsoHermes
+        exp_alerts: []
+
+  - name: QuotaCodexHebdo fires at 80 percent, not below
+    interval: 1m
+    input_series:
+      - series: 'hermes_quota_percent{fenetre="weekly"}'
+        values: "79x30 85x60"
+      - series: 'hermes_quota_resets_at{fenetre="weekly"}'
+        values: "1800000000x100"
+    alert_rule_test:
+      - eval_time: 30m
+        groupname: quotas
+        alertname: QuotaCodexHebdo
+        exp_alerts: []
+      - eval_time: 75m
+        groupname: quotas
+        alertname: QuotaCodexHebdo
+        exp_alerts:
+          - exp_labels:
+              alertgroup: quotas
+              alertname: QuotaCodexHebdo
+              famille: quotas
+              canal: alertes
+            exp_annotations:
+              resume: "quota Codex de la semaine à 85 %, remise à zéro le 15/01 à 08:00 UTC"
+              geste: "alléger les tâches d'Hermès jusqu'à la remise à zéro"
