@@ -216,6 +216,17 @@ docker run --rm -v "$PWD/alertmanager.yml":/etc/alertmanager/alertmanager.yml:ro
   check-config /etc/alertmanager/alertmanager.yml
 ```
 
+**Et la tester** : chaque règle a ses cas dans `tests/regles/alertes_test.yml` — une série
+d'échantillons, le moment où l'alerte doit (ou ne doit pas) se déclencher. Ajouter une règle, c'est
+ajouter son cas. La CI (`.github/workflows/tests.yml`) les joue à chaque pull request avec
+`vmalert-tool`, à la même version que l'image ; en local :
+
+```bash
+VMALERT_TOOL=/chemin/vers/vmalert-tool-prod python3 -m unittest discover -s tests -v
+```
+
+Sans `vmalert-tool`, ce test est **sauté** : en local, c'est voulu ; en CI, il est forcé.
+
 ### Faire taire une alerte
 
 Un silence, le temps d'une intervention : la page d'Alertmanager (`http://<hôte>:9093`, onglet
